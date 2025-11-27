@@ -1,40 +1,94 @@
-// server.js
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Caminho do JSON
-const keysFile = path.join(__dirname, 'keys.json');
+const KEYS_FILE = path.join(__dirname, 'keys.json');
+const KEY_EXPIRATION_HOURS = 12;
 
-// Função para carregar keys existentes
-function loadKeys() {
-    if (!fs.existsSync(keysFile)) return [];
-    try {
-        const data = fs.readFileSync(keysFile, 'utf8');
-        return JSON.parse(data);
-    } catch {
-        return [];
-    }
-}
-
-// Função para salvar keys no JSON
-function saveKeys(keys) {
-    fs.writeFileSync(keysFile, JSON.stringify(keys, null, 4));
-}
-
-// Função para gerar key aleatória do tipo XXXX-XXXX-XXXX
-function generateKey() {
+// Gera keys aleatórias
+function generateRandomKey(length = 12) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let key = '';
-    for (let i = 0; i < 12; i++) {
-        key += chars.charAt(Math.floor(Math.random() * chars.length));
-        if (i === 3 || i === 7) key += '-';
-    }
+    for (let i = 0; i < length; i++) key += chars.charAt(Math.floor(Math.random() * chars.length));
     return key;
 }
+
+// Inicializa keys.json com 100 keys caso não exista
+if (!fs.existsSync(KEYS_FILE)) {
+    const keys = [];
+    for (let i = 0; i < 100; i++) {
+        keys.push({
+            key: generateRandomKey(),
+            used: false,
+            hwid: null,
+            expires: null
+        });
+    }
+    fs.writeFileSync(KEYS_FILE, JSON.stringify(keys, null, 2));
+}
+
+// Ler e salvar keys
+function readKeys() {
+    return JSON.parse(fs.readFileSync(KEYS_FILE));
+}
+function saveKeys(keys) {
+    fs.writeFileSync(KEYS_FILE, JSON.stringify(keys, null, 2));
+}
+
+// Rota para gerar/distribuir key
+app.post('/getkey', (req, res) => {
+    const hwid = req.body.hwid;
+    if (!hwid) return res.status(400).json({ error: 'HWID required' });
+
+    const keys = readKeys();
+
+    // Limpa keys expiradas
+    const now = new Date();
+    keys.forEach(k => {
+        if (k.expires && new Date(k.expires) < now) {
+            k.used = false;
+            k.hwid = null;
+            k.expires = null;
+        }
+    });
+
+    // Verifica se já tem key para esse HWID
+    const existing = keys.find(k => k.hwid === hwid && k.used);
+    if (existing) return res.json({ key: existing.key, expires: existing.expires });
+
+    // Pega primeira key não usada
+    const freeKey = keys.find(k => !k.used);
+    if (!freeKey) return res.status(400).json({ error: 'No keys available' });
+
+    freeKey.used = true;
+    freeKey.hwid = hwid;
+    freeKey.expires = new Date(Date.now() + KEY_EXPIRATION_HOURS * 60 * 60 * 1000).toISOString();
+
+    saveKeys(keys);
+    res.json({ key: freeKey.key, expires: freeKey.expires });
+});
+
+// Verifica key
+app.post('/verify', (req, res) => {
+    const { key, hwid } = req.body;
+    if (!key || !hwid) return res.status(400).json({ error: 'Key and HWID required' });
+
+    const keys = readKeys();
+    const found = keys.find(k => k.key === key);
+    if (!found) return res.status(404).json({ valid: false, reason: 'Key not found' });
+
+    if (!found.used) return res.status(403).json({ valid: false, reason: 'Key not used yet' });
+    if (found.hwid !== hwid) return res.status(403).json({ valid: false, reason: 'HWID mismatch' });
+    if (new Date(found.expires) < new Date()) return res.status(403).json({ valid: false, reason: 'Key expired' });
+
+    res.json({ valid: true, expires: found.expires });
+});
+
+app.listen(3000, () => console.log('Server running on http://localhost:3000'));}
 
 // Limpar keys expiradas (mais de 12h)
 function cleanExpiredKeys() {
