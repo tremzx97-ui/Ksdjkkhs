@@ -1,8 +1,8 @@
-const express = require('express');
+              const express = require('express');
 const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 // Configurações
 const KEY_VALIDITY_HOURS = 12; // 12 horas
@@ -540,8 +540,13 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+// Rota de health check para Render
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', keysCount: keys.length });
+});
+
 // Iniciar servidor
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📱 Acesse: http://localhost:${PORT}`);
   console.log(`⏰ Keys válidas por: ${KEY_VALIDITY_HOURS} horas`);
