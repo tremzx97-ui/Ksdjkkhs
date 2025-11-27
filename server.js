@@ -1,40 +1,52 @@
 const express = require('express');
 const fs = require('fs');
-const path = require('path');
-
 const app = express();
+const PORT = 3000;
+
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-const KEYS_FILE = path.join(__dirname, 'keys.json');
-const KEY_EXPIRATION_HOURS = 12;
+const DATA_FILE = './authorized.json';
 
-// Gera keys aleatórias
-function generateRandomKey(length = 12) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let key = '';
-    for (let i = 0; i < length; i++) key += chars.charAt(Math.floor(Math.random() * chars.length));
-    return key;
+function loadAuthorized() {
+    if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]');
+    return JSON.parse(fs.readFileSync(DATA_FILE));
 }
 
-// Inicializa keys.json com 100 keys caso não exista
-if (!fs.existsSync(KEYS_FILE)) {
-    const keys = [];
-    for (let i = 0; i < 100; i++) {
-        keys.push({
-            key: generateRandomKey(),
-            used: false,
-            hwid: null,
-            expires: null
-        });
+function saveAuthorized(data) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+// Autorizar IP por 12 horas
+app.get('/authorize', (req, res) => {
+    const ip = req.ip;
+    let authorized = loadAuthorized();
+
+    // Remover IPs expirados
+    authorized = authorized.filter(entry => new Date(entry.expires) > new Date());
+
+    const exists = authorized.find(entry => entry.ip === ip);
+    if (!exists) {
+        const expires = new Date(Date.now() + 12 * 60 * 60 * 1000); // 12h
+        authorized.push({ ip, expires: expires.toISOString() });
+        saveAuthorized(authorized);
+        return res.json({ status: 'ok', expires });
     }
-    fs.writeFileSync(KEYS_FILE, JSON.stringify(keys, null, 2));
-}
 
-// Ler e salvar keys
-function readKeys() {
-    return JSON.parse(fs.readFileSync(KEYS_FILE));
-}
+    return res.json({ status: 'already', expires: exists.expires });
+});
+
+// Verificar IP
+app.get('/check', (req, res) => {
+    const ip = req.ip;
+    const authorized = loadAuthorized().filter(entry => new Date(entry.expires) > new Date());
+    saveAuthorized(authorized);
+
+    const exists = authorized.find(entry => entry.ip === ip);
+    if (exists) return res.json({ authorized: true, expires: exists.expires });
+    return res.json({ authorized: false });
+});
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));}
 function saveKeys(keys) {
     fs.writeFileSync(KEYS_FILE, JSON.stringify(keys, null, 2));
 }
