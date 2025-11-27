@@ -1,37 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Gerador de Key</title>
+<title>Autorizar IP</title>
 <style>
-body { font-family: Arial; background:#121212; color:#fff; display:flex; flex-direction:column; align-items:center; padding:50px;}
-button { background:#0a84ff; color:#fff; border:none; padding:10px 20px; margin:10px; cursor:pointer; border-radius:5px;}
-input { padding:10px; border-radius:5px; border:none; width:200px; margin-right:10px;}
-#output { margin-top:20px; word-break:break-all; }
+  body { font-family: Arial, sans-serif; background:#111; color:#eee; text-align:center; padding-top:50px; }
+  button { padding:10px 20px; font-size:16px; border:none; border-radius:5px; background:#1a73e8; color:#fff; cursor:pointer; }
+  button:hover { background:#1558b0; }
+  #status { margin-top:20px; font-size:18px; }
 </style>
 </head>
 <body>
-<h1>Gerador de Keys</h1>
-<input type="text" id="hwid" placeholder="Digite seu HWID">
-<button onclick="getKey()">Gerar Key</button>
-<div id="output"></div>
+<h1>Autorizar seu IP para usar o Mod</h1>
+<button onclick="authorize()">Autorizar IP (12h)</button>
+<div id="status"></div>
 
 <script>
-async function getKey() {
-    const hwid = document.getElementById('hwid').value;
-    if(!hwid){ alert('Digite o HWID!'); return; }
-    const res = await fetch('/getkey', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ hwid })
-    });
+async function authorize() {
+    const res = await fetch('/authorize');
     const data = await res.json();
-    if(data.key) {
-        document.getElementById('output').innerHTML = `Key: <b>${data.key}</b><br>Expira em: ${data.expires}`;
+    if (data.status === 'ok') {
+        document.getElementById('status').innerText = `IP autorizado até ${new Date(data.expires).toLocaleString()}`;
     } else {
-        document.getElementById('output').innerHTML = `Erro: ${data.error || data.reason}`;
+        document.getElementById('status').innerText = `IP já autorizado até ${new Date(data.expires).toLocaleString()}`;
     }
 }
 </script>
 </body>
-</html>
+</html></html>
