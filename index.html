@@ -1,26 +1,36 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Gerador de Keys</title>
+<title>Gerador de Key</title>
 <style>
-body { font-family: Arial; background: #111; color: #eee; text-align:center; padding-top:50px;}
-button { padding: 10px 20px; background:#0a84ff; color:#fff; border:none; border-radius:5px; cursor:pointer;}
-button:hover { background:#0066cc; }
-#key { margin-top:20px; font-size:20px; color:#0f0;}
+body { font-family: Arial; background:#121212; color:#fff; display:flex; flex-direction:column; align-items:center; padding:50px;}
+button { background:#0a84ff; color:#fff; border:none; padding:10px 20px; margin:10px; cursor:pointer; border-radius:5px;}
+input { padding:10px; border-radius:5px; border:none; width:200px; margin-right:10px;}
+#output { margin-top:20px; word-break:break-all; }
 </style>
 </head>
 <body>
-<h1>Gerador de Keys - 12h</h1>
-<button onclick="generate()">Gerar Key</button>
-<div id="key"></div>
+<h1>Gerador de Keys</h1>
+<input type="text" id="hwid" placeholder="Digite seu HWID">
+<button onclick="getKey()">Gerar Key</button>
+<div id="output"></div>
 
 <script>
-async function generate() {
-    const res = await fetch('/generate');
+async function getKey() {
+    const hwid = document.getElementById('hwid').value;
+    if(!hwid){ alert('Digite o HWID!'); return; }
+    const res = await fetch('/getkey', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ hwid })
+    });
     const data = await res.json();
-    document.getElementById('key').innerText = data.key + ' (Expira em 12h)';
+    if(data.key) {
+        document.getElementById('output').innerHTML = `Key: <b>${data.key}</b><br>Expira em: ${data.expires}`;
+    } else {
+        document.getElementById('output').innerHTML = `Erro: ${data.error || data.reason}`;
+    }
 }
 </script>
 </body>
