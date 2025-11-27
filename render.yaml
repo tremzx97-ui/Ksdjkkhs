@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: key-generator
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
