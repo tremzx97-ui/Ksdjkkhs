@@ -1,40 +1,78 @@
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
+// server.js
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
-const KEYS_FILE = path.join(__dirname, "keys.json");
+// Caminho do JSON
+const keysFile = path.join(__dirname, 'keys.json');
 
-// Middleware para servir arquivos estáticos
-app.use(express.static(__dirname));
-app.use(express.json());
-
-// Função para carregar/salvar keys
+// Função para carregar keys existentes
 function loadKeys() {
-    if (!fs.existsSync(KEYS_FILE)) fs.writeFileSync(KEYS_FILE, "[]");
-    return JSON.parse(fs.readFileSync(KEYS_FILE));
+    if (!fs.existsSync(keysFile)) return [];
+    try {
+        const data = fs.readFileSync(keysFile, 'utf8');
+        return JSON.parse(data);
+    } catch {
+        return [];
+    }
 }
+
+// Função para salvar keys no JSON
 function saveKeys(keys) {
-    fs.writeFileSync(KEYS_FILE, JSON.stringify(keys, null, 2));
+    fs.writeFileSync(keysFile, JSON.stringify(keys, null, 4));
 }
 
-// Limpa keys expiradas (12 horas = 43200000 ms)
-function cleanExpiredKeys() {
-    let keys = loadKeys();
-    const now = Date.now();
-    keys = keys.filter(k => now < k.expires);
-    saveKeys(keys);
-}
-
-// Gera key aleatória
+// Função para gerar key aleatória do tipo XXXX-XXXX-XXXX
 function generateKey() {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let key = "";
-    for (let i = 0; i < 20; i++) key += chars[Math.floor(Math.random() * chars.length)];
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let key = '';
+    for (let i = 0; i < 12; i++) {
+        key += chars.charAt(Math.floor(Math.random() * chars.length));
+        if (i === 3 || i === 7) key += '-';
+    }
     return key;
 }
+
+// Limpar keys expiradas (mais de 12h)
+function cleanExpiredKeys() {
+    const keys = loadKeys();
+    const now = Date.now();
+    const validKeys = keys.filter(k => now - k.createdAt < 12 * 60 * 60 * 1000);
+    saveKeys(validKeys);
+}
+
+// Rota para gerar key
+app.get('/generate', (req, res) => {
+    cleanExpiredKeys();
+    const keys = loadKeys();
+    const newKey = {
+        key: generateKey(),
+        createdAt: Date.now()
+    };
+    keys.push(newKey);
+    saveKeys(keys);
+    res.json({ success: true, key: newKey.key, expiresInHours: 12 });
+});
+
+// Rota para verificar key
+app.get('/verify/:key', (req, res) => {
+    cleanExpiredKeys();
+    const keys = loadKeys();
+    const key = keys.find(k => k.key === req.params.key);
+    if (key) {
+        res.json({ valid: true, expiresInHours: Math.ceil((12 * 60 * 60 * 1000 - (Date.now() - key.createdAt)) / (1000*60*60)) });
+    } else {
+        res.json({ valid: false });
+    }
+});
+
+// Servir HTML
+app.use(express.static(__dirname));
+
+app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));}
 
 // ROTA → Gerar Key
 app.post("/generate", (req, res) => {
