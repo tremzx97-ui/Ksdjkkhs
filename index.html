@@ -1,25 +1,27 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Gerador de Key</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>Gerador de Keys</title>
+<style>
+body { font-family: Arial; background: #111; color: #eee; text-align:center; padding-top:50px;}
+button { padding: 10px 20px; background:#0a84ff; color:#fff; border:none; border-radius:5px; cursor:pointer;}
+button:hover { background:#0066cc; }
+#key { margin-top:20px; font-size:20px; color:#0f0;}
+</style>
 </head>
 <body>
+<h1>Gerador de Keys - 12h</h1>
+<button onclick="generate()">Gerar Key</button>
+<div id="key"></div>
 
-    <div class="container">
-        <h2>Gerar Key</h2>
-        <button id="btn">Gerar Key</button>
-        <input id="output" readonly placeholder="Clique para gerar uma key">
-    </div>
-
-    <script>
-        document.getElementById("btn").addEventListener("click", async () => {
-            const res = await fetch("/generate", { method: "POST" });
-            const data = await res.json();
-            document.getElementById("output").value = data.key;
-        });
-    </script>
-
+<script>
+async function generate() {
+    const res = await fetch('/generate');
+    const data = await res.json();
+    document.getElementById('key').innerText = data.key + ' (Expira em 12h)';
+}
+</script>
 </body>
 </html>
