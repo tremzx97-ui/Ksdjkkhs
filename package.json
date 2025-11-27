@@ -1,0 +1,24 @@
+{
+  "name": "key-generator-auto",
+  "version": "1.0.0",
+  "description": "Sistema automático de geração de keys válidas por 12 horas",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "key",
+    "generator",
+    "auto",
+    "mod"
+  ],
+  "author": "ZaruSpam",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
