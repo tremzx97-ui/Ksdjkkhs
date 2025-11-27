@@ -1,40 +1,73 @@
 const express = require("express");
 const fs = require("fs");
+const path = require("path");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const KEYS_FILE = path.join(__dirname, "keys.json");
+
+// Middleware para servir arquivos estáticos
+app.use(express.static(__dirname));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static("./"));
 
-const KEY_FILE = "./keys.json";
-const KEY_DURATION = 12 * 60 * 60 * 1000; // 12 horas em ms
-
+// Função para carregar/salvar keys
 function loadKeys() {
-    if (!fs.existsSync(KEY_FILE)) {
-        fs.writeFileSync(KEY_FILE, JSON.stringify([]));
-    }
-    return JSON.parse(fs.readFileSync(KEY_FILE));
+    if (!fs.existsSync(KEYS_FILE)) fs.writeFileSync(KEYS_FILE, "[]");
+    return JSON.parse(fs.readFileSync(KEYS_FILE));
 }
-
 function saveKeys(keys) {
-    fs.writeFileSync(KEY_FILE, JSON.stringify(keys, null, 2));
+    fs.writeFileSync(KEYS_FILE, JSON.stringify(keys, null, 2));
 }
 
-function generateKey() {
-    return "KEY-" + Math.random().toString(36).substring(2, 10).toUpperCase();
-}
-
-// 🟢 Rota para gerar key
-app.get("/generate", (req, res) => {
+// Limpa keys expiradas (12 horas = 43200000 ms)
+function cleanExpiredKeys() {
     let keys = loadKeys();
-    const newKey = {
-        key: generateKey(),
-        createdAt: Date.now(),
-        expiresAt: Date.now() + KEY_DURATION
-    };
-    keys.push(newKey);
+    const now = Date.now();
+    keys = keys.filter(k => now < k.expires);
     saveKeys(keys);
+}
+
+// Gera key aleatória
+function generateKey() {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let key = "";
+    for (let i = 0; i < 20; i++) key += chars[Math.floor(Math.random() * chars.length)];
+    return key;
+}
+
+// ROTA → Gerar Key
+app.post("/generate", (req, res) => {
+    cleanExpiredKeys();
+    
+    const newKey = generateKey();
+    const keys = loadKeys();
+
+    keys.push({
+        key: newKey,
+        created: Date.now(),
+        expires: Date.now() + (12 * 60 * 60 * 1000) // 12h
+    });
+
+    saveKeys(keys);
+    res.json({ success: true, key: newKey });
+});
+
+// ROTA → Verificar key
+app.get("/verify", (req, res) => {
+    cleanExpiredKeys();
+
+    const { key } = req.query;
+    if (!key) return res.json({ valid: false });
+
+    const keys = loadKeys();
+    const found = keys.find(k => k.key === key);
+
+    res.json({ valid: !!found });
+});
+
+// Iniciar servidor
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));    saveKeys(keys);
     res.json(newKey);
 });
 
